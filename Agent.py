@@ -71,7 +71,7 @@ def run_agent(user_query):
                 # Parse the arguments the agent decided to pass to the tool
                 function_args = json.loads(tool_call.function.arguments)
                 
-                # Run the actual python function
+                
                 tool_result = get_current_weather(location=function_args.get("location"))
                 
                 # Step 4: Send the tool's result back to the Agent
