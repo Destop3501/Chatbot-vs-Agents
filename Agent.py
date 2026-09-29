@@ -6,7 +6,6 @@ import os
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-# Initialize client for local Ollama instance
 client = OpenAI(
     base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
     api_key="ollama"  # Ollama does not require a real API key
