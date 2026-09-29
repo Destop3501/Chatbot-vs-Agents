@@ -3,7 +3,6 @@ from openai import OpenAI
 import json
 import os
 
-# Ensure UTF-8 output encoding for terminal compatibility with emojis
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
