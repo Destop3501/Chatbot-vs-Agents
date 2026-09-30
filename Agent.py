@@ -92,9 +92,8 @@ def run_agent(user_query):
 
 if __name__ == "__main__":
     # Test 1: Needs a tool
-    print("User: What is the weather like in Tokyo?")
-    run_agent("What is the weather like in Tokyo?")
-    
-    # Test 2: Doesn't need a tool
-    print("\nUser: What is 2 + 2?")
-    run_agent("What is 2 + 2?")
+    while(True):
+        user_input = input("\nYou: ")
+        if user_input.lower() == 'quit':
+            break
+        run_agent(user_input)
