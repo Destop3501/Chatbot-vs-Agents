@@ -1,7 +1,45 @@
+import os
+import sys
 import json
 from openai import OpenAI
 
-client = OpenAI(api_key="YOUR_API_KEY")
+# Ensure UTF-8 output encoding for terminal compatibility with emojis and degree symbols
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+def load_env(env_path=".env"):
+    """Load key-value pairs from .env into os.environ if not already set."""
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    key = key.strip()
+                    val = val.strip().strip("'\"")
+                    if key and key not in os.environ:
+                        os.environ[key] = val
+
+load_env()
+
+MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+def get_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        print("\n[Error] OPENAI_API_KEY is not configured!")
+        print("Please add your OpenAI API key in .env:")
+        print("  OPENAI_API_KEY=sk-...\n")
+        sys.exit(1)
+    base_url = os.getenv("OPENAI_BASE_URL")
+    if base_url:
+        return OpenAI(api_key=api_key, base_url=base_url)
+    return OpenAI(api_key=api_key)
+
+client = None
 
 # 1. The underlying Python functions
 def get_user_location(name: str) -> str:
@@ -44,7 +82,11 @@ tools_schema = [
     }
 ]
 
-def run_agent(task_goal):
+def run_agent(task_goal: str) -> str:
+    global client
+    if client is None:
+        client = get_client()
+
     # The system prompt forces the ReAct (Reason + Act) architecture
     system_instruction = """
     You are an autonomous agent. Before calling any tool, you MUST write down your 
@@ -59,7 +101,7 @@ def run_agent(task_goal):
     
     while True:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model=MODEL,
             messages=messages,
             tools=tools_schema,
             tool_choice="auto"
@@ -89,3 +131,25 @@ def run_agent(task_goal):
         else:
             # Task completion criteria met
             return msg.content
+
+if __name__ == "__main__":
+    print(f"=== ReAct Agent Initialized (Model: {MODEL}) ===")
+    print("Example: 'What is the weather for Alice?'")
+    print("Type 'quit' or 'exit' to stop.\n")
+    
+    while True:
+        try:
+            user_input = input("You: ").strip()
+            if not user_input:
+                continue
+            if user_input.lower() in ("quit", "exit"):
+                print("Exiting Agent.")
+                break
+                
+            final_answer = run_agent(user_input)
+            print(f"\n[Agent Final Answer]: {final_answer}\n")
+        except KeyboardInterrupt:
+            print("\nExiting Agent.")
+            break
+        except Exception as e:
+            print(f"\n[Error]: {e}\n")
