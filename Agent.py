@@ -1,99 +1,91 @@
-import sys
-from openai import OpenAI
 import json
-import os
+from openai import OpenAI
 
-if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
+client = OpenAI(api_key="YOUR_API_KEY")
 
-client = OpenAI(
-    base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
-    api_key="ollama"  # Ollama does not require a real API key
-)
+# 1. The underlying Python functions
+def get_user_location(name: str) -> str:
+    return {"Alice": "London", "Bob": "Tokyo"}.get(name, "Unknown")
 
-MODEL = os.getenv("OLLAMA_MODEL", "qwen3:latest")
+def get_weather(city: str) -> str:
+    return {"London": "Raining, 12°C", "Tokyo": "Sunny, 25°C"}.get(city, "Unknown")
 
-# ---------------------------------------------------------
-# Step 1: Define the Tool (The Action)
-# ---------------------------------------------------------
-def get_current_weather(location):
-    """A simulated API call to get the weather."""
-    # In a real agent, this would call a real weather API
-    print(f"\n[System: Agent is calling weather API for {location}...]")
-    return json.dumps({"location": location, "temperature": "72", "condition": "Sunny"})
+# 2. The mapping dictionary for dynamic execution
+available_functions = {
+    "get_user_location": get_user_location,
+    "get_weather": get_weather
+}
 
-# ---------------------------------------------------------
-# Step 2: Define the Agent
-# ---------------------------------------------------------
-def run_agent(user_query):
-    # Tell the LLM what tools it has available
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_current_weather",
-                "description": "Get the current weather in a given location",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "location": {
-                            "type": "string",
-                            "description": "The city and state, e.g., San Francisco, CA",
-                        }
-                    },
-                    "required": ["location"],
-                },
+# 3. The JSON Schema passed to the LLM
+tools_schema = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_user_location",
+            "description": "Get the current city location of a user by name.",
+            "parameters": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"]
             }
         }
-    ]
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a given city.",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"]
+            }
+        }
+    }
+]
 
-    messages = [{"role": "user", "content": user_query}]
-
-    # Loop #1: The Agent decides if it needs to use a tool
-    response = client.chat.completions.create(
-        model=MODEL, 
-        messages=messages, 
-        tools=tools,
-        tool_choice="auto" # Let the model decide if it should call the tool
-    )
-
-    response_message = response.choices[0].message
+def run_agent(task_goal):
+    # The system prompt forces the ReAct (Reason + Act) architecture
+    system_instruction = """
+    You are an autonomous agent. Before calling any tool, you MUST write down your 
+    step-by-step reasoning in the text response. Evaluate the current state, determine 
+    what information is missing, and then call the appropriate tool.
+    """
     
-    # Check if the Agent decided to use a tool
-    if response_message.tool_calls:
-        # Step 3: Execute the tool on behalf of the agent
-        messages.append(response_message) # Append the agent's request to use the tool
+    messages = [
+        {"role": "system", "content": system_instruction},
+        {"role": "user", "content": task_goal}
+    ]
+    
+    while True:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            tools=tools_schema,
+            tool_choice="auto"
+        )
         
-        for tool_call in response_message.tool_calls:
-            if tool_call.function.name == "get_current_weather":
-                # Parse the arguments the agent decided to pass to the tool
-                function_args = json.loads(tool_call.function.arguments)
+        msg = response.choices[0].message
+        messages.append(msg)
+        
+        # AGENT DIFFERENCE: Log the Agent's internal reasoning scratchpad
+        if msg.content:
+            print(f"[Agent Thought Process]: {msg.content}")
+            
+        if msg.tool_calls:
+            for tool_call in msg.tool_calls:
+                func_name = tool_call.function.name
+                args = json.loads(tool_call.function.arguments)
+                print(f"[Agent Action]: Executing {func_name} with {args}")
                 
+                result = available_functions[func_name](**args)
+                print(f"[Agent Observation]: {result}\n")
                 
-                tool_result = get_current_weather(location=function_args.get("location"))
-                
-                # Step 4: Send the tool's result back to the Agent
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "name": tool_call.function.name,
-                    "content": tool_result,
+                    "content": str(result)
                 })
-
-        # Loop #2: The Agent synthesizes the tool data into a final answer
-        final_response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages
-        )
-        print(f"\nAgent Final Answer: {final_response.choices[0].message.content}")
-    else:
-        # The agent decided it didn't need tools to answer the question
-        print(f"\nAgent: {response_message.content}")
-
-if __name__ == "__main__":
-    # Test 1: Needs a tool
-    while(True):
-        user_input = input("\nYou: ")
-        if user_input.lower() == 'quit':
-            break
-        run_agent(user_input)
+        else:
+            # Task completion criteria met
+            return msg.content

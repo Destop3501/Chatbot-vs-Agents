@@ -1,47 +1,79 @@
-import sys
+import json
 from openai import OpenAI
-import os
 
-# Ensure UTF-8 output encoding for terminal compatibility with emojis
-if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
+client = OpenAI(api_key="YOUR_API_KEY")
 
-# Initialize client for local Ollama instance
-client = OpenAI(
-    base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
-    api_key="ollama"  # Ollama does not require a real API key
-)
+# 1. The underlying Python functions
+def get_user_location(name: str) -> str:
+    return {"Alice": "London", "Bob": "Tokyo"}.get(name, "Unknown")
 
-MODEL = os.getenv("OLLAMA_MODEL", "qwen3:latest")
+def get_weather(city: str) -> str:
+    return {"London": "Raining, 12°C", "Tokyo": "Sunny, 25°C"}.get(city, "Unknown")
 
-def run_chatbot():
-    print(f"Chatbot initialized ({MODEL}). Type 'quit' to exit.")
-    
-    # The system prompt gives the chatbot its personality
-    messages = [
-        {"role": "system", "content": "You are a helpful, conversational assistant."}
-    ]
+# 2. The mapping dictionary for dynamic execution
+available_functions = {
+    "get_user_location": get_user_location,
+    "get_weather": get_weather
+}
+
+# 3. The JSON Schema passed to the LLM
+tools_schema = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_user_location",
+            "description": "Get the current city location of a user by name.",
+            "parameters": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a given city.",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"]
+            }
+        }
+    }
+]
+
+def run_chatbot(user_prompt):
+    messages = [{"role": "user", "content": user_prompt}]
     
     while True:
-        user_input = input("\nYou: ")
-        if user_input.lower() == 'quit':
-            break
-            
-        # 1. Add user message to history
-        messages.append({"role": "user", "content": user_input})
-        
-        # 2. Call the LLM
+        # tool_choice="auto" allows the LLM to decide whether to call a tool or reply with text
         response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages
+            model="gpt-4o",
+            messages=messages,
+            tools=tools_schema,
+            tool_choice="auto" 
         )
         
-        # 3. Extract and print the response
-        bot_reply = response.choices[0].message.content
-        print(f"\nChatbot: {bot_reply}")
+        msg = response.choices[0].message
+        messages.append(msg) # Append the assistant's message (which contains the tool_call)
         
-        # 4. Add the bot's response to history so it remembers the context
-        messages.append({"role": "assistant", "content": bot_reply})
-
-if __name__ == "__main__":
-    run_chatbot()
+        # If the LLM decided to call tools, execute them
+        if msg.tool_calls:
+            for tool_call in msg.tool_calls:
+                func_name = tool_call.function.name
+                args = json.loads(tool_call.function.arguments)
+                
+                # Execute the actual Python function
+                result = available_functions[func_name](**args)
+                
+                # Append the result back to the conversation history
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": str(result)
+                })
+        else:
+            # If no tools were called, the chatbot has provided its final text answer
+            return msg.content
