@@ -25,21 +25,12 @@ def load_env(env_path=".env"):
 
 load_env()
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+# Configure model endpoint (defaults to local Ollama if not configured)
+BASE_URL = os.getenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
+API_KEY = os.getenv("OPENAI_API_KEY", "ollama")
+MODEL = os.getenv("OPENAI_MODEL", "qwen3:latest")
 
-def get_client() -> OpenAI:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("\n[Error] OPENAI_API_KEY is not configured!")
-        print("Please add your OpenAI API key in .env:")
-        print("  OPENAI_API_KEY=sk-...\n")
-        sys.exit(1)
-    base_url = os.getenv("OPENAI_BASE_URL")
-    if base_url:
-        return OpenAI(api_key=api_key, base_url=base_url)
-    return OpenAI(api_key=api_key)
-
-client = None
+client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
 
 # 1. The underlying Python functions
 def get_user_location(name: str) -> str:
@@ -83,23 +74,18 @@ tools_schema = [
 ]
 
 def run_chatbot(user_prompt: str) -> str:
-    global client
-    if client is None:
-        client = get_client()
-
     messages = [{"role": "user", "content": user_prompt}]
     
     while True:
-        # tool_choice="auto" allows the LLM to decide whether to call a tool or reply with text
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
             tools=tools_schema,
-            tool_choice="auto" 
+            tool_choice="auto"
         )
         
         msg = response.choices[0].message
-        messages.append(msg) # Append the assistant's message (which contains the tool_call)
+        messages.append(msg)
         
         # If the LLM decided to call tools, execute them
         if msg.tool_calls:
@@ -117,11 +103,10 @@ def run_chatbot(user_prompt: str) -> str:
                     "content": str(result)
                 })
         else:
-            # If no tools were called, the chatbot has provided its final text answer
             return msg.content
 
 if __name__ == "__main__":
-    print(f"=== Chatbot Initialized (Model: {MODEL}) ===")
+    print(f"=== Chatbot Initialized (Model: {MODEL} @ {BASE_URL}) ===")
     print("Example: 'What is the weather for Alice?'")
     print("Type 'quit' or 'exit' to stop.\n")
     
