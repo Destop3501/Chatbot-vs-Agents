@@ -32,7 +32,7 @@ MODEL = os.getenv("OPENAI_MODEL", "qwen3:latest")
 
 client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
 
-# 1. The underlying Python functions
+# 1. The underlying Python functions (same tools as Agent)
 def get_user_location(name: str) -> str:
     return {"Alice": "London", "Bob": "Tokyo"}.get(name, "Unknown")
 
@@ -45,7 +45,7 @@ available_functions = {
     "get_weather": get_weather
 }
 
-# 3. The JSON Schema passed to the LLM
+# 3. The JSON Schema passed to the LLM (identical to Agent)
 tools_schema = [
     {
         "type": "function",
@@ -73,41 +73,63 @@ tools_schema = [
     }
 ]
 
+# ============================================================================
+# CHATBOT ARCHITECTURE: Single-pass tool calling (NO reasoning loop)
+#
+# Step 1: Send user message to LLM (with tools available)
+# Step 2: If LLM calls tools, execute them and feed results back
+# Step 3: Get ONE final text response (NO more tool calls allowed)
+#
+# This means: If the answer requires CHAINING tools (tool A's output feeds
+# into tool B), the chatbot CANNOT do it. It only gets ONE round of tools.
+# ============================================================================
+
 def run_chatbot(user_prompt: str) -> str:
     messages = [{"role": "user", "content": user_prompt}]
     
-    while True:
-        response = client.chat.completions.create(
+    # Step 1: First LLM call — tools are available
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=messages,
+        tools=tools_schema,
+        tool_choice="auto"
+    )
+    
+    msg = response.choices[0].message
+    messages.append(msg)
+    
+    # Step 2: If tools were called, execute them (ONE round only)
+    if msg.tool_calls:
+        for tool_call in msg.tool_calls:
+            func_name = tool_call.function.name
+            args = json.loads(tool_call.function.arguments)
+            print(f"  [Tool Call]: {func_name}({args})")
+            
+            result = available_functions[func_name](**args)
+            print(f"  [Tool Result]: {result}")
+            
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": str(result)
+            })
+        
+        # Step 3: Final LLM call — NO tools allowed, just synthesize a text answer
+        # This is the key limitation: chatbot does NOT loop back for more tool calls
+        final_response = client.chat.completions.create(
             model=MODEL,
-            messages=messages,
-            tools=tools_schema,
-            tool_choice="auto"
+            messages=messages
+            # Notice: no 'tools' parameter here — the chatbot is DONE with tools
         )
-        
-        msg = response.choices[0].message
-        messages.append(msg)
-        
-        # If the LLM decided to call tools, execute them
-        if msg.tool_calls:
-            for tool_call in msg.tool_calls:
-                func_name = tool_call.function.name
-                args = json.loads(tool_call.function.arguments)
-                
-                # Execute the actual Python function
-                result = available_functions[func_name](**args)
-                
-                # Append the result back to the conversation history
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": str(result)
-                })
-        else:
-            return msg.content
+        return final_response.choices[0].message.content
+    else:
+        return msg.content
 
 if __name__ == "__main__":
-    print(f"=== Chatbot Initialized (Model: {MODEL} @ {BASE_URL}) ===")
-    print("Example: 'What is the weather for Alice?'")
+    print(f"=== Tool-Calling Chatbot (Model: {MODEL} @ {BASE_URL}) ===")
+    print("This chatbot HAS tools but can only use them in ONE round (no chaining).")
+    print("Try: 'What is the weather in London?'        (It CAN answer — single tool)")
+    print("Try: 'What is the weather where Alice lives?' (It CANNOT fully answer — needs chaining)")
     print("Type 'quit' or 'exit' to stop.\n")
     
     while True:

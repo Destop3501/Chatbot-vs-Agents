@@ -120,7 +120,8 @@ def run_agent(task_goal: str) -> str:
 
 if __name__ == "__main__":
     print(f"=== ReAct Agent Initialized (Model: {MODEL} @ {BASE_URL}) ===")
-    print("Example: 'What is the weather for Alice?'")
+    print("This agent HAS tools: get_user_location, get_weather")
+    print("Try: 'What is the weather where Alice lives?'  (It CAN answer this!)")
     print("Type 'quit' or 'exit' to stop.\n")
     
     while True:
