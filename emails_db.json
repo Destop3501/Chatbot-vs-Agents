@@ -1,0 +1,48 @@
+[
+  {
+    "id": "msg-101",
+    "sender": "sarah.chen@techcorp.com (Sarah Chen, Lead Architect)",
+    "to": "me@company.com",
+    "subject": "Q4 Architecture Review - Action Required Before Friday",
+    "date": "2026-10-10 09:15 AM",
+    "body": "Hi team,\n\nPlease find the updated system design document for our Q4 architecture review. We need each team lead to submit their feedback by Friday 5:00 PM. Key areas of focus include microservices latency reduction and the new Agentic AI workflow integration.\n\nBest,\nSarah",
+    "is_read": false
+  },
+  {
+    "id": "msg-102",
+    "sender": "marcus.vance@investorpartners.com (Marcus Vance, Investment Director)",
+    "to": "me@company.com",
+    "subject": "Follow-up: Series B Due Diligence & Financial Metrics",
+    "date": "2026-10-09 04:45 PM",
+    "body": "Dear founders,\n\nThanks for the productive discussion yesterday. Could you please share the monthly recurring revenue (MRR) breakdown and customer retention rates for the last two quarters? Our committee would like to review them before finalizing the term sheet next Tuesday.\n\nRegards,\nMarcus Vance",
+    "is_read": true
+  },
+  {
+    "id": "msg-103",
+    "sender": "alex.rivera@devops-cloud.io (Alex Rivera, Senior SRE)",
+    "to": "engineering-all@company.com",
+    "subject": "Heads-Up: Scheduled PostgreSQL Cluster Maintenance this Sunday",
+    "date": "2026-10-08 11:30 AM",
+    "body": "Hello everyone,\n\nThis is a notification that our primary PostgreSQL cluster will undergo maintenance this Sunday between 02:00 UTC and 04:00 UTC. Expect approximately 10-15 minutes of read-only mode during the failover.\n\nFeel free to reach out on Slack #devops if you have concerns.\nAlex",
+    "is_read": false
+  },
+  {
+    "id": "msg-104",
+    "sender": "dr.elena.rostova@ai-research.org (Dr. Elena Rostova)",
+    "to": "me@company.com",
+    "subject": "Accepted Paper: Autonomous ReAct Agents in Production",
+    "date": "2026-10-07 02:20 PM",
+    "body": "Dear colleague,\n\nOur paper on Autonomous ReAct Agents in Production has been officially accepted for oral presentation at NeurAI 2026! Let's arrange a brief sync next week to coordinate slides.\n\nWarm regards,\nDr. Elena",
+    "is_read": true
+  },
+  {
+    "id": "sent-123304",
+    "sender": "me@company.com (Current User)",
+    "to": "marcus.vance@investorpartners.com",
+    "subject": "Re: Follow-up: Series B Due Diligence & Financial Metrics",
+    "date": "2026-10-10 04:17 PM",
+    "body": "Dear Marcus,\n\nAttached please find the monthly recurring revenue (MRR) breakdown for Q1-Q2 2026. The customer retention rates are available upon request - would you like me to share them separately?\n\nPlease review at your convenience. Our team is available until Tuesday for any clarifications.\n\nBest regards,\n[Your Name]",
+    "is_read": true,
+    "is_sent": true
+  }
+]
