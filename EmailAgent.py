@@ -2,7 +2,11 @@ import os
 import sys
 import json
 import uuid
+import warnings
 from datetime import datetime
+
+# Suppress Google Auth Python 3.9 EOL advisory notice
+warnings.filterwarnings("ignore", category=FutureWarning)
 from openai import OpenAI
 from gmail_api import GmailAPIClient
 

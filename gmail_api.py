@@ -1,8 +1,12 @@
 import os
 import json
 import base64
+import warnings
 from typing import Dict, Any, List, Optional
 from email.message import EmailMessage
+
+# Suppress Google Auth Python 3.9 EOL advisory notice
+warnings.filterwarnings("ignore", category=FutureWarning)
 import requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
